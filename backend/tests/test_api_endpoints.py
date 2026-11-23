@@ -102,3 +102,10 @@ def test_hotspot_endpoint(client: TestClient):
             assert data["city"] == "Delhi"
             assert len(data["hotspots"]) > 0
             assert "label" in data["hotspots"][0]
+
+
+def test_get_report_not_found(client: TestClient):
+    res = client.get("/api/report/999999")
+    assert res.status_code == 404
+    assert "not found" in res.json()["detail"].lower()
+

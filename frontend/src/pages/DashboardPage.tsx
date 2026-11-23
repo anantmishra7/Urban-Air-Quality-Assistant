@@ -58,7 +58,34 @@ export const DashboardPage: React.FC = () => {
   };
 
   useEffect(() => {
-    loadData();
+    let cancelled = false;
+    const fetchData = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const [aqiRes, forecastRes] = await Promise.all([
+          api.getAqi(selectedCity),
+          api.getHourlyForecast(selectedCity).catch(() => ({ city: selectedCity, hourly: [] })),
+        ]);
+        if (!cancelled) {
+          setData(aqiRes);
+          setHourlySeries(forecastRes.hourly || []);
+        }
+      } catch (err: unknown) {
+        if (!cancelled) {
+          const msg = err instanceof Error ? err.message : 'Failed to fetch AQI data';
+          setError(msg);
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    };
+    fetchData();
+    return () => {
+      cancelled = true;
+    };
   }, [selectedCity]);
 
   if (loading) {

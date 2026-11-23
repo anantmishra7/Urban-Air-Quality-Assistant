@@ -193,8 +193,9 @@ export const ReportPage: React.FC = () => {
           <form onSubmit={handleSubmit} className="space-y-4 text-xs">
             {/* City */}
             <div>
-              <label className="block text-slate-300 font-semibold mb-1">City / Municipality</label>
+              <label htmlFor="report-city" className="block text-slate-300 font-semibold mb-1">City / Municipality</label>
               <input
+                id="report-city"
                 type="text"
                 value={city}
                 onChange={(e) => setCity(e.target.value)}
@@ -206,8 +207,9 @@ export const ReportPage: React.FC = () => {
             {/* Coordinates */}
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-slate-300 font-semibold mb-1">Latitude</label>
+                <label htmlFor="report-lat" className="block text-slate-300 font-semibold mb-1">Latitude</label>
                 <input
+                  id="report-lat"
                   type="text"
                   value={latitude}
                   onChange={(e) => setLatitude(e.target.value)}
@@ -216,8 +218,9 @@ export const ReportPage: React.FC = () => {
                 />
               </div>
               <div>
-                <label className="block text-slate-300 font-semibold mb-1">Longitude</label>
+                <label htmlFor="report-lon" className="block text-slate-300 font-semibold mb-1">Longitude</label>
                 <input
+                  id="report-lon"
                   type="text"
                   value={longitude}
                   onChange={(e) => setLongitude(e.target.value)}
@@ -238,8 +241,9 @@ export const ReportPage: React.FC = () => {
 
             {/* Category */}
             <div>
-              <label className="block text-slate-300 font-semibold mb-1">Pollution Category</label>
+              <label htmlFor="report-category" className="block text-slate-300 font-semibold mb-1">Pollution Category</label>
               <select
+                id="report-category"
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
                 className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700/80 text-white focus:outline-none focus:ring-1 focus:ring-emerald-500"
@@ -254,10 +258,11 @@ export const ReportPage: React.FC = () => {
 
             {/* Description */}
             <div>
-              <label className="block text-slate-300 font-semibold mb-1">
+              <label htmlFor="report-description" className="block text-slate-300 font-semibold mb-1">
                 Description & Observations
               </label>
               <textarea
+                id="report-description"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 required
@@ -269,7 +274,7 @@ export const ReportPage: React.FC = () => {
 
             {/* Photo Upload */}
             <div>
-              <label className="block text-slate-300 font-semibold mb-1">
+              <label htmlFor="report-photo" className="block text-slate-300 font-semibold mb-1">
                 Supporting Photo (Max 5 MB &bull; JPG, PNG, WebP)
               </label>
               <div className="border-2 border-dashed border-slate-700 hover:border-slate-600 rounded-xl p-3 text-center transition-colors">
@@ -292,11 +297,12 @@ export const ReportPage: React.FC = () => {
                     </button>
                   </div>
                 ) : (
-                  <label className="cursor-pointer block">
+                  <label htmlFor="report-photo" className="cursor-pointer block">
                     <ImageIcon className="w-6 h-6 text-slate-400 mx-auto mb-1" />
                     <span className="text-slate-300 font-medium">Click to upload photo evidence</span>
                     <span className="block text-[10px] text-slate-400">JPG, PNG, WebP up to 5MB</span>
                     <input
+                      id="report-photo"
                       type="file"
                       accept="image/jpeg,image/png,image/webp"
                       onChange={handleFileChange}

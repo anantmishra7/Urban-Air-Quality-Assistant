@@ -97,3 +97,34 @@ def test_health_implications_output():
     for cat in ["Good", "Satisfactory", "Moderate", "Poor", "Very Poor", "Severe"]:
         text = health_implications(cat)
         assert len(text) > 10
+
+
+def test_sub_index_at_exact_boundaries():
+    """Test exact boundary points on sub-index curve."""
+    assert sub_index(0.0, CPCB_BREAKPOINTS["pm2_5"]) == 0.0
+    assert sub_index(30.0, CPCB_BREAKPOINTS["pm2_5"]) == 50.0
+    val_60 = sub_index(60.0, CPCB_BREAKPOINTS["pm2_5"])
+    assert 99.0 <= val_60 <= 100.0
+
+
+def test_sub_index_boundary_clamp():
+    """Negative concentration falls outside breakpoints and clamps to 500."""
+    val = sub_index(-10.0, CPCB_BREAKPOINTS["pm2_5"])
+    assert val == 500.0
+
+
+def test_categorize_aqi_all_boundaries():
+    """Verify all CPCB category boundary transitions."""
+    assert categorize_aqi(0) == "Good"
+    assert categorize_aqi(50) == "Good"
+    assert categorize_aqi(50.1) == "Satisfactory"
+    assert categorize_aqi(100) == "Satisfactory"
+    assert categorize_aqi(100.1) == "Moderate"
+    assert categorize_aqi(200) == "Moderate"
+    assert categorize_aqi(200.1) == "Poor"
+    assert categorize_aqi(300) == "Poor"
+    assert categorize_aqi(301) == "Very Poor"
+    assert categorize_aqi(400) == "Very Poor"
+    assert categorize_aqi(401) == "Severe"
+    assert categorize_aqi(500) == "Severe"
+

@@ -16,7 +16,6 @@ test_engine = create_engine(
 
 @pytest.fixture(name="session", autouse=True)
 def session_fixture():
-    # Patch app_db engine
     orig_engine = app_db.engine
     app_db.engine = test_engine
 
@@ -27,7 +26,6 @@ def session_fixture():
             yield session
 
     app.dependency_overrides[app_db.get_session] = get_test_session
-    app_db.get_session = lambda: Session(test_engine)
 
     yield
 

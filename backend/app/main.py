@@ -5,13 +5,14 @@ serves smart rule-based AI recommendations, handles citizen pollution reports,
 supports city comparisons, hotspot analysis, and geocoding.
 """
 import os
+import re
+import uuid
 import logging
 from pathlib import Path
-from typing import Optional
+from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, HTTPException, UploadFile, File, Request
+from fastapi import FastAPI, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from slowapi import Limiter, _rate_limit_exceeded_handler
@@ -31,23 +32,31 @@ logger = logging.getLogger("breathecity.main")
 # Rate Limiter setup
 limiter = Limiter(key_func=get_remote_address, default_limits=["120/minute"])
 
+
+@asynccontextmanager
+async def lifespan(application: FastAPI):
+    """Application lifespan: initialize resources on startup."""
+    logger.info("Initializing BreatheCity database...")
+    db.init_db()
+    logger.info("Database initialized successfully.")
+    yield
+
+
 app = FastAPI(
     title="BreatheCity AI Backend",
     description="Intelligent Urban Air Quality Assistant API with CPCB AQI, Hotspot Detection, and AI Recommendations",
     version="1.0.0",
+    lifespan=lifespan,
 )
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-# CORS configuration
+# CORS configuration – secure environment-based trusted origins
+_default_origins = "http://localhost:5173,http://localhost:3000,http://127.0.0.1:5173,http://127.0.0.1:3000"
 origins = [
-    "http://localhost",
-    "http://localhost:5173",
-    "http://localhost:3000",
-    "http://127.0.0.1",
-    "http://127.0.0.1:5173",
-    "http://127.0.0.1:3000",
-    "*",
+    o.strip()
+    for o in os.environ.get("CORS_ORIGINS", _default_origins).split(",")
+    if o.strip()
 ]
 
 app.add_middleware(
@@ -67,9 +76,6 @@ app.include_router(comparison.router, prefix="/api")
 app.include_router(geocode.router, prefix="/api")
 app.include_router(hotspot.router, prefix="/api")
 
-# Also alias legacy /aqi without prefix for backwards compatibility
-app.include_router(aqi.router)
-
 
 # Health check endpoint
 @app.get("/health", tags=["Health"])
@@ -83,14 +89,6 @@ def health_check():
     }
 
 
-# Startup: initialize database
-@app.on_event("startup")
-def on_startup():
-    logger.info("Initializing BreatheCity database...")
-    db.init_db()
-    logger.info("Database initialized successfully.")
-
-
 # File upload configuration
 UPLOAD_DIR = Path(__file__).resolve().parent.parent / "uploads"
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
@@ -98,11 +96,32 @@ UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 ALLOWED_EXTENSIONS = {"jpg", "jpeg", "png", "webp"}
 ALLOWED_MIME_TYPES = {"image/jpeg", "image/png", "image/webp"}
 MAX_FILE_SIZE = 5 * 1024 * 1024  # 5 MB
+CHUNK_SIZE = 8192  # 8 KB chunks for streaming read
+
+# Magic byte signatures for image validation
+IMAGE_SIGNATURES = {
+    b"\xff\xd8\xff": "image/jpeg",
+    b"\x89PNG\r\n\x1a\n": "image/png",
+}
 
 
-def validate_upload(file: UploadFile):
+def _check_webp_signature(header: bytes) -> bool:
+    """Check for WebP RIFF...WEBP signature."""
+    return len(header) >= 12 and header[:4] == b"RIFF" and header[8:12] == b"WEBP"
+
+
+def validate_magic_bytes(header: bytes) -> bool:
+    """Verify file content matches an allowed image format via magic bytes."""
+    for sig in IMAGE_SIGNATURES:
+        if header.startswith(sig):
+            return True
+    return _check_webp_signature(header)
+
+
+def validate_upload_metadata(file: UploadFile) -> str:
+    """Validate file extension and MIME type. Returns the extension."""
     filename = file.filename or ""
-    ext = filename.split(".")[-1].lower() if "." in filename else ""
+    ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
     if ext not in ALLOWED_EXTENSIONS:
         raise HTTPException(
             status_code=400,
@@ -113,24 +132,40 @@ def validate_upload(file: UploadFile):
             status_code=400,
             detail=f"Invalid MIME type: {file.content_type}. Only images (JPEG, PNG, WebP) are allowed.",
         )
+    return ext
 
 
-@app.post("/upload", tags=["Utility"])
 @app.post("/api/upload", tags=["Utility"])
 async def upload_file(file: UploadFile = File(...)):
-    validate_upload(file)
-    contents = await file.read()
-    if len(contents) > MAX_FILE_SIZE:
-        raise HTTPException(
-            status_code=400,
-            detail=f"File too large ({len(contents)} bytes). Maximum allowed size is 5 MB.",
-        )
+    validate_upload_metadata(file)
+
+    # Stream-read file in chunks to enforce size limit safely without excessive memory consumption
+    chunks: list[bytes] = []
+    total_size = 0
+    while True:
+        chunk = await file.read(CHUNK_SIZE)
+        if not chunk:
+            break
+        total_size += len(chunk)
+        if total_size > MAX_FILE_SIZE:
+            raise HTTPException(
+                status_code=400,
+                detail="File too large. Maximum allowed size is 5 MB.",
+            )
+        chunks.append(chunk)
+
+    contents = b"".join(chunks)
     if len(contents) == 0:
         raise HTTPException(status_code=400, detail="Empty file cannot be uploaded.")
 
-    # Sanitize filename with unique suffix to prevent collisions and directory traversal
-    import uuid
-    import re
+    # Verify actual file signature via magic bytes
+    if not validate_magic_bytes(contents[:12]):
+        raise HTTPException(
+            status_code=400,
+            detail="File content does not match a valid image signature. Please upload an authentic JPEG, PNG, or WebP image.",
+        )
+
+    # Sanitize filename: strip path components, prevent path traversal, add unique prefix
     raw_name = Path(file.filename or "photo.jpg").name
     safe_base = re.sub(r"[^a-zA-Z0-9_\-\.]", "_", raw_name)
     unique_name = f"{uuid.uuid4().hex[:8]}_{safe_base}"
@@ -154,6 +189,7 @@ app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 FRONTEND_DIST = Path(__file__).resolve().parent.parent.parent / "frontend" / "dist"
 if FRONTEND_DIST.exists():
     from fastapi.responses import FileResponse
+
     assets_dir = FRONTEND_DIST / "assets"
     if assets_dir.exists():
         app.mount("/assets", StaticFiles(directory=assets_dir), name="frontend_assets")
@@ -172,4 +208,3 @@ if FRONTEND_DIST.exists():
         if index_html.exists():
             return FileResponse(index_html)
         raise HTTPException(status_code=404, detail="Frontend build index.html not found.")
-

@@ -1,5 +1,5 @@
 import os
-from typing import List, Optional
+from typing import List, Optional, Generator
 from datetime import datetime, timezone
 
 from sqlmodel import SQLModel, Field, create_engine, Session, select
@@ -23,5 +23,6 @@ def init_db():
     SQLModel.metadata.create_all(engine)
 
 
-def get_session() -> Session:
-    return Session(engine)
+def get_session() -> Generator[Session, None, None]:
+    with Session(engine) as session:
+        yield session

@@ -107,6 +107,10 @@ export const CitySearch: React.FC<CitySearchProps> = ({
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
           autoFocus={autoFocus}
+          aria-label="City search"
+          aria-autocomplete="list"
+          role="combobox"
+          aria-expanded={isOpen}
           className="w-full pl-10 pr-10 py-2.5 rounded-xl bg-slate-900/90 border border-slate-700/80 text-sm text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/80 transition-all shadow-inner"
         />
         {loading ? (
@@ -125,7 +129,11 @@ export const CitySearch: React.FC<CitySearchProps> = ({
       </div>
 
       {isOpen && (
-        <div className="absolute top-full mt-1.5 w-full bg-slate-900 border border-slate-700/80 rounded-xl shadow-2xl z-50 overflow-hidden divide-y divide-slate-800 backdrop-blur-md">
+        <div
+          role="listbox"
+          aria-label="City suggestions"
+          className="absolute top-full mt-1.5 w-full bg-slate-900 border border-slate-700/80 rounded-xl shadow-2xl z-50 overflow-hidden divide-y divide-slate-800 backdrop-blur-md"
+        >
           {suggestions.length > 0 ? (
             <div className="p-1 max-h-60 overflow-y-auto">
               <div className="px-3 py-1.5 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
@@ -134,6 +142,8 @@ export const CitySearch: React.FC<CitySearchProps> = ({
               {suggestions.map((loc, idx) => (
                 <button
                   key={`${loc.name}-${loc.latitude}-${idx}`}
+                  role="option"
+                  aria-selected={selectedIndex === idx}
                   onClick={() => handleSelectCity(loc.name)}
                   className={`w-full text-left px-3 py-2 rounded-lg text-sm flex items-center justify-between transition-colors ${
                     selectedIndex === idx ? 'bg-emerald-500/20 text-emerald-300' : 'hover:bg-slate-800/80 text-slate-200'

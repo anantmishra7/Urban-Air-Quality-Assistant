@@ -126,6 +126,7 @@ export const ComparisonPage: React.FC = () => {
               onClick={() => handleRemoveCity(c)}
               className="p-0.5 hover:text-rose-400 transition-colors"
               title={`Remove ${c}`}
+              aria-label={`Remove ${c} from comparison`}
             >
               <X className="w-3.5 h-3.5" />
             </button>
@@ -139,6 +140,7 @@ export const ComparisonPage: React.FC = () => {
               value={newCityInput}
               onChange={(e) => setNewCityInput(e.target.value)}
               placeholder="Add city (e.g. Pune)..."
+              aria-label="Add city to comparison"
               className="px-3 py-1.5 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-emerald-500 w-36"
             />
             <button

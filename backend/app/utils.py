@@ -7,7 +7,7 @@ import os
 import logging
 from typing import Dict, Any, List, Optional, Tuple
 import httpx
-from datetime import datetime
+from datetime import datetime, timezone
 
 from cachetools import TTLCache, cached
 
@@ -292,7 +292,7 @@ def get_aqi_data(city: str) -> Optional[Dict[str, Any]]:
             "aqi_category": category,
             "health_implications": health_implications(category),
             "weather": current_weather,
-            "last_updated": datetime.utcnow().isoformat() + "Z",
+            "last_updated": datetime.now(timezone.utc).isoformat(),
             "source": "Open-Meteo + CPCB AQI Methodology",
         }
         logger.info("AQI data fetched for %s: AQI=%s (%s)", city, aqi_info["aqi"], category)
