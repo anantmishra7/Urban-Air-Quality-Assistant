@@ -2,8 +2,9 @@
 Comparison router – compare AQI across multiple cities.
 GET /compare?cities=Delhi,Mumbai,Chennai
 """
+
 import logging
-from typing import List, Dict, Any
+from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query
 
@@ -21,7 +22,7 @@ async def compare_cities(
         description="Comma-separated list of city names (e.g. Delhi,Mumbai,Chennai)",
         min_length=1,
     ),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Fetch AQI data for each city and return a comparative array.
     Cities are separated by commas.  Maximum 10 cities per request.
@@ -33,31 +34,35 @@ async def compare_cities(
         raise HTTPException(status_code=400, detail="Maximum 10 cities per comparison")
 
     logger.info("Comparing cities: %s", city_list)
-    results: List[Dict[str, Any]] = []
-    errors: List[str] = []
+    results: list[dict[str, Any]] = []
+    errors: list[str] = []
 
     for city in city_list:
         data = get_aqi_data(city)
         if data:
-            results.append({
-                "city": data.get("city", city),
-                "latitude": data.get("latitude"),
-                "longitude": data.get("longitude"),
-                "aqi": data.get("aqi"),
-                "aqi_category": data.get("aqi_category"),
-                "dominant_pollutant": data.get("dominant_pollutant"),
-                "pollutants": data.get("pollutants", {}),
-                "sub_indices": data.get("sub_indices", {}),
-                "health_implications": data.get("health_implications", ""),
-                "weather": data.get("weather", {}),
-                "last_updated": data.get("last_updated"),
-            })
+            results.append(
+                {
+                    "city": data.get("city", city),
+                    "latitude": data.get("latitude"),
+                    "longitude": data.get("longitude"),
+                    "aqi": data.get("aqi"),
+                    "aqi_category": data.get("aqi_category"),
+                    "dominant_pollutant": data.get("dominant_pollutant"),
+                    "pollutants": data.get("pollutants", {}),
+                    "sub_indices": data.get("sub_indices", {}),
+                    "health_implications": data.get("health_implications", ""),
+                    "weather": data.get("weather", {}),
+                    "last_updated": data.get("last_updated"),
+                }
+            )
         else:
             errors.append(city)
             logger.warning("AQI data not found for city: %s", city)
 
     if not results:
-        raise HTTPException(status_code=404, detail="AQI data not found for any of the requested cities")
+        raise HTTPException(
+            status_code=404, detail="AQI data not found for any of the requested cities"
+        )
 
     # Sort by AQI descending (worst first)
     results.sort(key=lambda r: r.get("aqi") or 0, reverse=True)

@@ -20,7 +20,7 @@ import { ErrorState } from '../components/ui/ErrorState';
 import type { HotspotResponse, HotspotPoint } from '../types';
 
 // Fix default Leaflet icon paths in React
-delete (L.Icon.Default.prototype as any)._getIconUrl;
+delete (L.Icon.Default.prototype as unknown as { _getIconUrl?: unknown })._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
   iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
@@ -61,28 +61,40 @@ export const MapPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedPoint, setSelectedPoint] = useState<HotspotPoint | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
 
   const majorCities = ['Delhi', 'Mumbai', 'Bengaluru', 'Kolkata', 'Chennai', 'Hyderabad'];
 
-  const loadHotspots = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await api.getHotspots(selectedCity);
-      setData(res);
-      if (res.hotspots && res.hotspots.length > 0) {
-        setSelectedPoint(res.hotspots[0]);
-      }
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Could not fetch hotspot data');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
-    loadHotspots();
-  }, [selectedCity]);
+    let cancelled = false;
+    async function fetchHotspots() {
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await api.getHotspots(selectedCity);
+        if (!cancelled) {
+          setData(res);
+          if (res.hotspots && res.hotspots.length > 0) {
+            setSelectedPoint(res.hotspots[0]);
+          }
+        }
+      } catch (err: unknown) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : 'Could not fetch hotspot data');
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    }
+    fetchHotspots();
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedCity, reloadKey]);
+
+  const handleRetry = () => setReloadKey((k) => k + 1);
 
   if (loading) {
     return (
@@ -99,7 +111,7 @@ export const MapPage: React.FC = () => {
         <ErrorState
           title={`Hotspot Mapping Failed for ${selectedCity}`}
           message={error || 'Unable to compute spatial grid points for this location.'}
-          onRetry={loadHotspots}
+          onRetry={handleRetry}
         />
       </div>
     );

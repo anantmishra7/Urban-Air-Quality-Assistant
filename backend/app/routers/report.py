@@ -4,22 +4,22 @@ POST /report   – Create a new report
 GET  /report   – List all reports
 GET  /report/{id} – Get single report
 """
+
 import logging
-from typing import Optional, List
 from datetime import datetime
 
-from fastapi import APIRouter, HTTPException, Query, Depends
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
-from sqlmodel import select, Session
+from sqlmodel import Session, select
 
-from ..db import get_session, Report
+from ..db import Report, get_session
 
 logger = logging.getLogger("breathecity.report")
 
 router = APIRouter(prefix="/report", tags=["Reports"])
 
 
-def _format_datetime(dt: Optional[datetime]) -> str:
+def _format_datetime(dt: datetime | None) -> str:
     if dt is None:
         return ""
     iso = dt.isoformat()
@@ -36,7 +36,7 @@ class ReportCreate(BaseModel):
     latitude: float = Field(..., ge=-90, le=90)
     longitude: float = Field(..., ge=-180, le=180)
     description: str = Field(..., min_length=1, max_length=2000, description="Report description")
-    photo_path: Optional[str] = Field(None, max_length=500, description="Path/URL of uploaded photo")
+    photo_path: str | None = Field(None, max_length=500, description="Path/URL of uploaded photo")
 
 
 class ReportResponse(BaseModel):
@@ -45,12 +45,27 @@ class ReportResponse(BaseModel):
     latitude: float
     longitude: float
     description: str
-    photo_path: Optional[str]
+    photo_path: str | None
     status: str
     created_at: str
 
 
+def _to_report_response(report: Report) -> ReportResponse:
+    """Map a Report ORM model instance to the API response schema."""
+    return ReportResponse(
+        id=report.id,
+        city=report.city,
+        latitude=report.latitude,
+        longitude=report.longitude,
+        description=report.description,
+        photo_path=report.photo_path,
+        status=report.status,
+        created_at=_format_datetime(report.created_at),
+    )
+
+
 # ---- Endpoints ----
+
 
 @router.post("/", response_model=ReportResponse, status_code=201)
 async def create_report(
@@ -71,25 +86,16 @@ async def create_report(
         session.commit()
         session.refresh(report)
         logger.info("Report created: id=%s city=%s", report.id, report.city)
-        return ReportResponse(
-            id=report.id,
-            city=report.city,
-            latitude=report.latitude,
-            longitude=report.longitude,
-            description=report.description,
-            photo_path=report.photo_path,
-            status=report.status,
-            created_at=_format_datetime(report.created_at),
-        )
+        return _to_report_response(report)
     except Exception as e:
         session.rollback()
         logger.error("Failed to create report: %s", e)
-        raise HTTPException(status_code=500, detail="Failed to create report")
+        raise HTTPException(status_code=500, detail="Failed to create report") from e
 
 
-@router.get("/", response_model=List[ReportResponse])
+@router.get("/", response_model=list[ReportResponse])
 async def list_reports(
-    city: Optional[str] = Query(None, description="Filter by city"),
+    city: str | None = Query(None, description="Filter by city"),
     limit: int = Query(50, ge=1, le=200, description="Max results"),
     offset: int = Query(0, ge=0, description="Offset for pagination"),
     session: Session = Depends(get_session),
@@ -102,22 +108,10 @@ async def list_reports(
             stmt = stmt.where(Report.city.ilike(f"%{city}%"))
         stmt = stmt.offset(offset).limit(limit)
         reports = session.exec(stmt).all()
-        return [
-            ReportResponse(
-                id=r.id,
-                city=r.city,
-                latitude=r.latitude,
-                longitude=r.longitude,
-                description=r.description,
-                photo_path=r.photo_path,
-                status=r.status,
-                created_at=_format_datetime(r.created_at),
-            )
-            for r in reports
-        ]
+        return [_to_report_response(r) for r in reports]
     except Exception as e:
         logger.error("Failed to list reports: %s", e)
-        raise HTTPException(status_code=500, detail="Failed to retrieve reports")
+        raise HTTPException(status_code=500, detail="Failed to retrieve reports") from e
 
 
 @router.get("/{report_id}", response_model=ReportResponse)
@@ -130,13 +124,4 @@ async def get_report(
     report = session.get(Report, report_id)
     if not report:
         raise HTTPException(status_code=404, detail="Report not found")
-    return ReportResponse(
-        id=report.id,
-        city=report.city,
-        latitude=report.latitude,
-        longitude=report.longitude,
-        description=report.description,
-        photo_path=report.photo_path,
-        status=report.status,
-        created_at=_format_datetime(report.created_at),
-    )
+    return _to_report_response(report)

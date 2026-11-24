@@ -4,23 +4,23 @@ Integrates live Open-Meteo air quality and weather data, computes Indian CPCB AQ
 serves smart rule-based AI recommendations, handles citizen pollution reports,
 supports city comparisons, hotspot analysis, and geocoding.
 """
+
+import logging
 import os
 import re
 import uuid
-import logging
-from pathlib import Path
 from contextlib import asynccontextmanager
+from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, UploadFile, File
+from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-
 from slowapi import Limiter, _rate_limit_exceeded_handler
-from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
 
 from . import db
-from .routers import aqi, forecast, assistant, report, comparison, geocode, hotspot
+from .routers import aqi, assistant, comparison, forecast, geocode, hotspot, report
 
 # Setup logging
 logging.basicConfig(
@@ -52,11 +52,11 @@ app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # CORS configuration – secure environment-based trusted origins
-_default_origins = "http://localhost:5173,http://localhost:3000,http://127.0.0.1:5173,http://127.0.0.1:3000"
+_default_origins = (
+    "http://localhost:5173,http://localhost:3000,http://127.0.0.1:5173,http://127.0.0.1:3000"
+)
 origins = [
-    o.strip()
-    for o in os.environ.get("CORS_ORIGINS", _default_origins).split(",")
-    if o.strip()
+    o.strip() for o in os.environ.get("CORS_ORIGINS", _default_origins).split(",") if o.strip()
 ]
 
 app.add_middleware(

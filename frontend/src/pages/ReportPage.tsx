@@ -32,6 +32,8 @@ export const ReportPage: React.FC = () => {
   const [submitting, setSubmitting] = useState(false);
   const [formSuccess, setFormSuccess] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
+  const [reportsError, setReportsError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
 
   const categories = [
     'Construction Dust / Unpaved Roads',
@@ -42,21 +44,31 @@ export const ReportPage: React.FC = () => {
     'Other Point Pollution Source',
   ];
 
-  const fetchReports = async () => {
-    setLoadingReports(true);
-    try {
-      const data = await api.listReports();
-      setReports(data);
-    } catch {
-      // ignore
-    } finally {
-      setLoadingReports(false);
-    }
-  };
-
   useEffect(() => {
-    fetchReports();
-  }, []);
+    let cancelled = false;
+    async function loadReports() {
+      setLoadingReports(true);
+      setReportsError(null);
+      try {
+        const data = await api.listReports();
+        if (!cancelled) {
+          setReports(data);
+        }
+      } catch (err: unknown) {
+        if (!cancelled) {
+          setReportsError(err instanceof Error ? err.message : 'Unable to load community reports.');
+        }
+      } finally {
+        if (!cancelled) {
+          setLoadingReports(false);
+        }
+      }
+    }
+    loadReports();
+    return () => {
+      cancelled = true;
+    };
+  }, [reloadKey]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormError(null);
@@ -92,7 +104,7 @@ export const ReportPage: React.FC = () => {
           setLongitude(pos.coords.longitude.toFixed(4));
         },
         () => {
-          alert('Location access denied or unavailable.');
+          setFormError('Location access denied or unavailable. Please enter coordinates manually.');
         }
       );
     }
@@ -141,7 +153,7 @@ export const ReportPage: React.FC = () => {
       setDescription('');
       setSelectedFile(null);
       setFilePreview(null);
-      fetchReports();
+      setReloadKey((k) => k + 1);
     } catch (err: unknown) {
       setFormError(err instanceof Error ? err.message : 'Submission failed. Please try again.');
     } finally {
@@ -361,6 +373,17 @@ export const ReportPage: React.FC = () => {
               {[...Array(4)].map((_, i) => (
                 <LoadingSkeleton key={i} className="h-28 rounded-xl" />
               ))}
+            </div>
+          ) : reportsError ? (
+            <div className="glass-panel p-6 rounded-2xl text-center text-rose-300 text-xs space-y-2 border border-rose-800/40">
+              <p>{reportsError}</p>
+              <button
+                type="button"
+                onClick={() => setReloadKey((k) => k + 1)}
+                className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-100 font-semibold"
+              >
+                Retry
+              </button>
             </div>
           ) : reports.length === 0 ? (
             <div className="glass-panel p-8 rounded-2xl text-center text-slate-400 text-xs">

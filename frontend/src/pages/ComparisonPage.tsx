@@ -28,6 +28,8 @@ export const ComparisonPage: React.FC = () => {
   const [data, setData] = useState<ComparisonItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [limitNotice, setLimitNotice] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
 
   const presets = [
     { label: 'Top Indian Metros', list: ['Delhi', 'Mumbai', 'Bengaluru', 'Kolkata', 'Chennai'] },
@@ -35,30 +37,40 @@ export const ComparisonPage: React.FC = () => {
     { label: 'Global Comparison', list: ['Delhi', 'London', 'Beijing', 'New York', 'Tokyo'] },
   ];
 
-  const fetchComparison = async (cityList: string[]) => {
-    if (cityList.length === 0) {
-      setData([]);
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await api.compareCities(cityList);
-      setData(res.comparison || []);
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Comparison failed.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
-    fetchComparison(cities);
-  }, [cities]);
+    let cancelled = false;
+    async function loadComparison() {
+      if (cities.length === 0) {
+        setData([]);
+        setLoading(false);
+        return;
+      }
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await api.compareCities(cities);
+        if (!cancelled) {
+          setData(res.comparison || []);
+        }
+      } catch (err: unknown) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : 'Comparison failed.');
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    }
+    loadComparison();
+    return () => {
+      cancelled = true;
+    };
+  }, [cities, reloadKey]);
 
   const handleAddCity = (e: React.FormEvent) => {
     e.preventDefault();
+    setLimitNotice(null);
     const trimmed = newCityInput.trim();
     if (!trimmed) return;
     if (cities.some((c) => c.toLowerCase() === trimmed.toLowerCase())) {
@@ -66,7 +78,7 @@ export const ComparisonPage: React.FC = () => {
       return;
     }
     if (cities.length >= 6) {
-      alert('You can compare up to 6 cities at once.');
+      setLimitNotice('You can compare up to 6 cities at once.');
       return;
     }
     setCities([...cities, trimmed]);
@@ -74,6 +86,7 @@ export const ComparisonPage: React.FC = () => {
   };
 
   const handleRemoveCity = (cityToRemove: string) => {
+    setLimitNotice(null);
     setCities(cities.filter((c) => c.toLowerCase() !== cityToRemove.toLowerCase()));
   };
 
@@ -115,43 +128,51 @@ export const ComparisonPage: React.FC = () => {
       </div>
 
       {/* Selected Cities Tag Cloud & Add Input */}
-      <div className="glass-panel rounded-2xl p-4 border border-slate-800 flex flex-wrap items-center gap-2">
-        {cities.map((c) => (
-          <span
-            key={c}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-700 text-xs font-semibold text-white shadow-sm"
-          >
-            <span>{c}</span>
-            <button
-              onClick={() => handleRemoveCity(c)}
-              className="p-0.5 hover:text-rose-400 transition-colors"
-              title={`Remove ${c}`}
-              aria-label={`Remove ${c} from comparison`}
+      <div className="glass-panel rounded-2xl p-4 border border-slate-800 space-y-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {cities.map((c) => (
+            <span
+              key={c}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-700 text-xs font-semibold text-white shadow-sm"
             >
-              <X className="w-3.5 h-3.5" />
-            </button>
-          </span>
-        ))}
+              <span>{c}</span>
+              <button
+                onClick={() => handleRemoveCity(c)}
+                className="p-0.5 hover:text-rose-400 transition-colors"
+                title={`Remove ${c}`}
+                aria-label={`Remove ${c} from comparison`}
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </span>
+          ))}
 
-        {cities.length < 6 && (
-          <form onSubmit={handleAddCity} className="inline-flex items-center gap-1">
-            <input
-              type="text"
-              value={newCityInput}
-              onChange={(e) => setNewCityInput(e.target.value)}
-              placeholder="Add city (e.g. Pune)..."
-              aria-label="Add city to comparison"
-              className="px-3 py-1.5 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-emerald-500 w-36"
-            />
-            <button
-              type="submit"
-              disabled={!newCityInput.trim()}
-              className="p-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs disabled:opacity-40 transition-all"
-              title="Add city"
-            >
-              <Plus className="w-3.5 h-3.5" />
-            </button>
-          </form>
+          {cities.length < 6 && (
+            <form onSubmit={handleAddCity} className="inline-flex items-center gap-1">
+              <input
+                type="text"
+                value={newCityInput}
+                onChange={(e) => setNewCityInput(e.target.value)}
+                placeholder="Add city (e.g. Pune)..."
+                aria-label="Add city to comparison"
+                className="px-3 py-1.5 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-emerald-500 w-36"
+              />
+              <button
+                type="submit"
+                disabled={!newCityInput.trim()}
+                className="p-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs disabled:opacity-40 transition-all"
+                title="Add city"
+                aria-label="Add city"
+              >
+                <Plus className="w-3.5 h-3.5" />
+              </button>
+            </form>
+          )}
+        </div>
+        {limitNotice && (
+          <p role="alert" className="text-xs text-amber-400">
+            {limitNotice}
+          </p>
         )}
       </div>
 
@@ -164,7 +185,7 @@ export const ComparisonPage: React.FC = () => {
         <ErrorState
           title="Comparison Failed"
           message={error}
-          onRetry={() => fetchComparison(cities)}
+          onRetry={() => setReloadKey((k) => k + 1)}
         />
       ) : (
         <>

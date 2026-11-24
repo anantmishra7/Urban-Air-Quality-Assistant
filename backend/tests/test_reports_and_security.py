@@ -1,5 +1,5 @@
 import io
-import pytest
+
 from fastapi.testclient import TestClient
 
 
@@ -50,12 +50,15 @@ def test_create_report_sql_injection_defense(client: TestClient):
 
 def test_list_reports(client: TestClient):
     # Pre-create a report
-    client.post("/api/report/", json={
-        "city": "Mumbai",
-        "latitude": 19.0760,
-        "longitude": 72.8777,
-        "description": "Industrial chimney fumes near port.",
-    })
+    client.post(
+        "/api/report/",
+        json={
+            "city": "Mumbai",
+            "latitude": 19.0760,
+            "longitude": 72.8777,
+            "description": "Industrial chimney fumes near port.",
+        },
+    )
     res = client.get("/api/report/?city=Mumbai")
     assert res.status_code == 200
     data = res.json()

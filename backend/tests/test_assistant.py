@@ -1,5 +1,5 @@
-import pytest
 from unittest.mock import patch
+
 from fastapi.testclient import TestClient
 
 MOCK_DELHI_AQI = {
@@ -34,7 +34,9 @@ def test_assistant_safe_question(client: TestClient):
         assert data["aqi_category"] == "Very Poor"
         assert len(data["answer"]) > 20
         # For "Very Poor", advice should mention precautions or avoiding outdoor exposure
-        assert any(w in data["answer"].lower() for w in ["indoor", "poor", "exposure", "mask", "limit"])
+        assert any(
+            w in data["answer"].lower() for w in ["indoor", "poor", "exposure", "mask", "limit"]
+        )
 
 
 def test_assistant_exercise_question(client: TestClient):
@@ -42,12 +44,16 @@ def test_assistant_exercise_question(client: TestClient):
         res = client.get("/api/assistant/answer?city=Delhi&question=Should+I+exercise+outdoors%3F")
         assert res.status_code == 200
         data = res.json()
-        assert any(w in data["answer"].lower() for w in ["exercise", "indoor", "avoid", "gym", "workout"])
+        assert any(
+            w in data["answer"].lower() for w in ["exercise", "indoor", "avoid", "gym", "workout"]
+        )
 
 
 def test_assistant_pollutant_question(client: TestClient):
     with patch("backend.app.routers.assistant.get_aqi_data", return_value=MOCK_DELHI_AQI):
-        res = client.get("/api/assistant/answer?city=Delhi&question=Which+pollutants+are+currently+high%3F")
+        res = client.get(
+            "/api/assistant/answer?city=Delhi&question=Which+pollutants+are+currently+high%3F"
+        )
         assert res.status_code == 200
         data = res.json()
         # Should identify PM2.5 or PM10 as high
@@ -56,18 +62,27 @@ def test_assistant_pollutant_question(client: TestClient):
 
 def test_assistant_children_elderly_precautions(client: TestClient):
     with patch("backend.app.routers.assistant.get_aqi_data", return_value=MOCK_DELHI_AQI):
-        res = client.get("/api/assistant/answer?city=Delhi&question=What+precautions+should+children+and+elderly+take%3F")
+        res = client.get(
+            "/api/assistant/answer?city=Delhi&question=What+precautions+should+children+and+elderly+take%3F"
+        )
         assert res.status_code == 200
         data = res.json()
-        assert any(w in data["answer"].lower() for w in ["children", "elderly", "sensitive", "indoor", "mask"])
+        assert any(
+            w in data["answer"].lower()
+            for w in ["children", "elderly", "sensitive", "indoor", "mask"]
+        )
 
 
 def test_assistant_mask_question(client: TestClient):
     with patch("backend.app.routers.assistant.get_aqi_data", return_value=MOCK_DELHI_AQI):
-        res = client.get("/api/assistant/answer?city=Delhi&question=Do+I+need+to+wear+an+N95+mask%3F")
+        res = client.get(
+            "/api/assistant/answer?city=Delhi&question=Do+I+need+to+wear+an+N95+mask%3F"
+        )
         assert res.status_code == 200
         data = res.json()
-        assert any(w in data["answer"].lower() for w in ["mask", "n95", "kn95", "filter", "recommended"])
+        assert any(
+            w in data["answer"].lower() for w in ["mask", "n95", "kn95", "filter", "recommended"]
+        )
 
 
 def test_assistant_unknown_city_404(client: TestClient):

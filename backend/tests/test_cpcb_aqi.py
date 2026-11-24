@@ -1,10 +1,9 @@
-import pytest
 from backend.app.utils import (
-    sub_index,
-    compute_cpcb_aqi,
-    categorize_aqi,
     CPCB_BREAKPOINTS,
+    categorize_aqi,
+    compute_cpcb_aqi,
     health_implications,
+    sub_index,
 )
 
 
@@ -39,12 +38,12 @@ def test_sub_index_clamp_high():
 def test_compute_cpcb_aqi_all_six_pollutants():
     # Test realistic Delhi smog data: PM2.5 dominant
     pollutants = {
-        "pm2_5": 180.0,            # 120.01-250 -> 301-400 (Very Poor)
-        "pm10": 260.0,             # 250.01-350 -> 201-300 (Poor)
+        "pm2_5": 180.0,  # 120.01-250 -> 301-400 (Very Poor)
+        "pm10": 260.0,  # 250.01-350 -> 201-300 (Poor)
         "nitrogen_dioxide": 65.0,  # 40.01-80 -> 51-100 (Satisfactory)
-        "sulphur_dioxide": 20.0,   # 0-40 -> 0-50 (Good)
-        "carbon_monoxide": 2500.0, # 2500 µg/m³ = 2.5 mg/m³ -> 101-200 (Moderate)
-        "ozone": 45.0,             # 0-50 -> 0-50 (Good)
+        "sulphur_dioxide": 20.0,  # 0-40 -> 0-50 (Good)
+        "carbon_monoxide": 2500.0,  # 2500 µg/m³ = 2.5 mg/m³ -> 101-200 (Moderate)
+        "ozone": 45.0,  # 0-50 -> 0-50 (Good)
     }
     result = compute_cpcb_aqi(pollutants)
     assert result["aqi"] is not None
@@ -127,4 +126,3 @@ def test_categorize_aqi_all_boundaries():
     assert categorize_aqi(400) == "Very Poor"
     assert categorize_aqi(401) == "Severe"
     assert categorize_aqi(500) == "Severe"
-

@@ -1,8 +1,9 @@
 """
 Extended upload security tests – oversized files, magic byte verification, edge cases.
 """
+
 import io
-import pytest
+
 from fastapi.testclient import TestClient
 
 

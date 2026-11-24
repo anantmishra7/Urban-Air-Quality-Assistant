@@ -5,18 +5,15 @@ forecast context, and weather context.
 
 GET /assistant/answer?city=Delhi&question=Is it safe to go jogging?
 """
+
 import logging
-from typing import Dict, Any, Optional, List
+from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query
 
 from ..utils import (
     get_aqi_data,
-    categorize_aqi,
     health_implications,
-    fetch_air_quality,
-    fetch_weather,
-    get_coordinates,
 )
 
 logger = logging.getLogger("breathecity.assistant")
@@ -126,6 +123,7 @@ CHILDREN_ADVICE = {
 # Helper: determine question type from keywords
 # ---------------------------------------------------------------------------
 
+
 def classify_question(question: str) -> str:
     """Classify a user question into a category using keyword matching."""
     q = question.lower()
@@ -133,21 +131,63 @@ def classify_question(question: str) -> str:
     # Order matters – more specific checks first
     if any(w in q for w in ["mask", "n95", "respirator", "face cover"]):
         return "mask"
-    if any(w in q for w in ["exercise", "jog", "run", "walk", "gym", "workout", "sport", "yoga", "cycling"]):
+    if any(
+        w in q
+        for w in ["exercise", "jog", "run", "walk", "gym", "workout", "sport", "yoga", "cycling"]
+    ):
         return "exercise"
     if any(w in q for w in ["child", "kid", "baby", "infant", "school", "playground", "toddler"]):
         return "children"
     if any(w in q for w in ["elderly", "senior", "old age", "grandparent", "aged"]):
         return "sensitive_elderly"
-    if any(w in q for w in ["asthma", "copd", "lung disease", "respiratory", "heart disease", "cardiac", "diabetes", "pregnant", "pregnancy"]):
+    if any(
+        w in q
+        for w in [
+            "asthma",
+            "copd",
+            "lung disease",
+            "respiratory",
+            "heart disease",
+            "cardiac",
+            "diabetes",
+            "pregnant",
+            "pregnancy",
+        ]
+    ):
         return "sensitive_medical"
     if any(w in q for w in ["sensitive", "vulnerable"]):
         return "sensitive"
-    if any(w in q for w in ["indoor", "inside", "home", "purifier", "air purifier", "ventilation", "ac", "air conditioner"]):
+    if any(
+        w in q
+        for w in [
+            "indoor",
+            "inside",
+            "home",
+            "purifier",
+            "air purifier",
+            "ventilation",
+            "ac",
+            "air conditioner",
+        ]
+    ):
         return "indoor"
-    if any(w in q for w in ["travel", "visit", "tour", "tourist", "vacation", "trip", "fly", "commute"]):
+    if any(
+        w in q for w in ["travel", "visit", "tour", "tourist", "vacation", "trip", "fly", "commute"]
+    ):
         return "travel"
-    if any(w in q for w in ["forecast", "tomorrow", "next week", "predict", "trend", "coming days", "next few days", "week ahead"]):
+    if any(
+        w in q
+        for w in [
+            "forecast",
+            "tomorrow",
+            "next week",
+            "predict",
+            "trend",
+            "coming days",
+            "next few days",
+            "week ahead",
+        ]
+    ):
         return "forecast"
     if any(w in q for w in ["weather", "temperature", "rain", "humidity", "wind", "hot", "cold"]):
         return "weather"
@@ -163,13 +203,30 @@ def classify_question(question: str) -> str:
         return "pollutant_co"
     if any(w in q for w in ["ozone", "o3"]):
         return "pollutant_o3"
-    if any(w in q for w in ["pollutant", "pollution", "cause", "source", "what is causing", "why is"]):
+    if any(
+        w in q for w in ["pollutant", "pollution", "cause", "source", "what is causing", "why is"]
+    ):
         return "pollutant_general"
     if any(w in q for w in ["safe", "safety", "dangerous", "risk", "hazard", "harmful"]):
         return "safety"
-    if any(w in q for w in ["precaution", "protect", "prevention", "avoid", "reduce exposure", "tip", "advice", "recommend"]):
+    if any(
+        w in q
+        for w in [
+            "precaution",
+            "protect",
+            "prevention",
+            "avoid",
+            "reduce exposure",
+            "tip",
+            "advice",
+            "recommend",
+        ]
+    ):
         return "precaution"
-    if any(w in q for w in ["aqi", "air quality index", "what does", "meaning", "scale", "category", "level"]):
+    if any(
+        w in q
+        for w in ["aqi", "air quality index", "what does", "meaning", "scale", "category", "level"]
+    ):
         return "aqi_explain"
     if any(w in q for w in ["compare", "versus", "vs", "better", "worse", "which city"]):
         return "compare"
@@ -184,12 +241,17 @@ def classify_question(question: str) -> str:
 # Generate response for each question type
 # ---------------------------------------------------------------------------
 
-def _fmt_pollutants(pollutants: Dict[str, float], sub_indices: Dict[str, float]) -> str:
+
+def _fmt_pollutants(pollutants: dict[str, float], sub_indices: dict[str, float]) -> str:
     """Format pollutant data as a readable string."""
     lines = []
     names = {
-        "pm2_5": "PM2.5", "pm10": "PM10", "nitrogen_dioxide": "NO₂",
-        "sulphur_dioxide": "SO₂", "carbon_monoxide": "CO", "ozone": "O₃",
+        "pm2_5": "PM2.5",
+        "pm10": "PM10",
+        "nitrogen_dioxide": "NO₂",
+        "sulphur_dioxide": "SO₂",
+        "carbon_monoxide": "CO",
+        "ozone": "O₃",
     }
     for key, label in names.items():
         conc = pollutants.get(key)
@@ -198,7 +260,7 @@ def _fmt_pollutants(pollutants: Dict[str, float], sub_indices: Dict[str, float])
             unit = "mg/m³" if key == "carbon_monoxide" else "µg/m³"
             # CO from Open-Meteo is in µg/m³
             if key == "carbon_monoxide":
-                conc_display = f"{conc:.0f} µg/m³ ({conc/1000:.2f} mg/m³)"
+                conc_display = f"{conc:.0f} µg/m³ ({conc / 1000:.2f} mg/m³)"
             else:
                 conc_display = f"{conc:.1f} {unit}"
             si_str = f" (sub-index: {si})" if si is not None else ""
@@ -206,9 +268,48 @@ def _fmt_pollutants(pollutants: Dict[str, float], sub_indices: Dict[str, float])
     return "\n".join(lines) if lines else "  Pollutant data unavailable."
 
 
+_SIMPLE_ADVICE_CONFIG: dict[str, tuple[str, dict[str, str], str]] = {
+    "mask": (
+        "🏥 **Mask Recommendation for {city}** (AQI: {aqi} – {category}):",
+        MASK_ADVICE,
+        "Check local AQI before deciding on mask use.",
+    ),
+    "exercise": (
+        "🏃 **Exercise Advice for {city}** (AQI: {aqi} – {category}):",
+        EXERCISE_ADVICE,
+        "Check local AQI before exercising outdoors.",
+    ),
+    "children": (
+        "👶 **Children & Outdoor Activity in {city}** (AQI: {aqi} – {category}):",
+        CHILDREN_ADVICE,
+        "Monitor AQI before allowing children outdoors.",
+    ),
+    "sensitive_elderly": (
+        "⚠️ **Sensitive Group Advisory for {city}** (AQI: {aqi} – {category}):",
+        SENSITIVE_GROUP_ADVICE,
+        "Sensitive individuals should monitor AQI.",
+    ),
+    "sensitive_medical": (
+        "⚠️ **Sensitive Group Advisory for {city}** (AQI: {aqi} – {category}):",
+        SENSITIVE_GROUP_ADVICE,
+        "Sensitive individuals should monitor AQI.",
+    ),
+    "sensitive": (
+        "⚠️ **Sensitive Group Advisory for {city}** (AQI: {aqi} – {category}):",
+        SENSITIVE_GROUP_ADVICE,
+        "Sensitive individuals should monitor AQI.",
+    ),
+    "travel": (
+        "✈️ **Travel Advisory for {city}** (AQI: {aqi} – {category}):",
+        TRAVEL_ADVICE,
+        "Check local AQI advisories before traveling.",
+    ),
+}
+
+
 def generate_response(
     question_type: str,
-    data: Dict[str, Any],
+    data: dict[str, Any],
     question: str,
 ) -> str:
     """Generate a detailed answer based on question type and AQI data."""
@@ -220,29 +321,14 @@ def generate_response(
     weather = data.get("weather", {})
     city = data.get("city", "your city")
 
-    if question_type == "mask":
-        base = MASK_ADVICE.get(category, "Check local AQI before deciding on mask use.")
-        return f"🏥 **Mask Recommendation for {city}** (AQI: {aqi} – {category}):\n\n{base}"
-
-    if question_type == "exercise":
-        base = EXERCISE_ADVICE.get(category, "Check local AQI before exercising outdoors.")
-        return f"🏃 **Exercise Advice for {city}** (AQI: {aqi} – {category}):\n\n{base}"
-
-    if question_type == "children":
-        base = CHILDREN_ADVICE.get(category, "Monitor AQI before allowing children outdoors.")
-        return f"👶 **Children & Outdoor Activity in {city}** (AQI: {aqi} – {category}):\n\n{base}"
-
-    if question_type in ("sensitive_elderly", "sensitive_medical", "sensitive"):
-        base = SENSITIVE_GROUP_ADVICE.get(category, "Sensitive individuals should monitor AQI.")
-        return f"⚠️ **Sensitive Group Advisory for {city}** (AQI: {aqi} – {category}):\n\n{base}"
+    if question_type in _SIMPLE_ADVICE_CONFIG:
+        header_tpl, advice_map, fallback = _SIMPLE_ADVICE_CONFIG[question_type]
+        header = header_tpl.format(city=city, aqi=aqi, category=category)
+        return f"{header}\n\n{advice_map.get(category, fallback)}"
 
     if question_type == "indoor":
-        tips = "\n".join(f"  {i+1}. {t}" for i, t in enumerate(INDOOR_TIPS))
+        tips = "\n".join(f"  {i + 1}. {t}" for i, t in enumerate(INDOOR_TIPS))
         return f"🏠 **Indoor Air Quality Tips for {city}** (AQI: {aqi} – {category}):\n\n{tips}"
-
-    if question_type == "travel":
-        base = TRAVEL_ADVICE.get(category, "Check local AQI advisories before traveling.")
-        return f"✈️ **Travel Advisory for {city}** (AQI: {aqi} – {category}):\n\n{base}"
 
     if question_type == "forecast":
         return (
@@ -297,7 +383,11 @@ def generate_response(
             f"🌫️ **Pollution Breakdown for {city}** (AQI: {aqi} – {category}):\n\n"
             f"Current pollutant levels:\n{p_summary}\n\n"
             f"Dominant pollutant: **{(dominant or 'N/A').replace('_', ' ').upper()}**\n"
-            + (f"  → {dom_info.get('description', '')}\n  → Sources: {dom_info.get('sources', '')}" if dom_info else "")
+            + (
+                f"  → {dom_info.get('description', '')}\n  → Sources: {dom_info.get('sources', '')}"
+                if dom_info
+                else ""
+            )
         )
 
     if question_type == "safety":
@@ -316,7 +406,7 @@ def generate_response(
             EXERCISE_ADVICE.get(category, ""),
             SENSITIVE_GROUP_ADVICE.get(category, ""),
         ]
-        numbered = "\n".join(f"  {i+1}. {t}" for i, t in enumerate(tips_list) if t)
+        numbered = "\n".join(f"  {i + 1}. {t}" for i, t in enumerate(tips_list) if t)
         indoor = "\n".join(f"  • {t}" for t in INDOOR_TIPS[:4])
         return (
             f"🛡️ **Precautions for {city}** (AQI: {aqi} – {category}):\n\n"
@@ -396,11 +486,12 @@ def generate_response(
 # Endpoint
 # ---------------------------------------------------------------------------
 
+
 @router.get("/answer")
 async def get_answer(
     city: str = Query(..., description="City name for AQI context"),
     question: str = Query(..., description="User question about air quality"),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     AI assistant endpoint – classifies the user question and returns
     contextual advice based on current AQI data.

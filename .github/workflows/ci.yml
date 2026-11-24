@@ -23,6 +23,11 @@ jobs:
         run: |
           pip install --upgrade pip
           pip install -r backend/requirements.txt
+          pip install ruff
+
+      - name: Lint backend with ruff
+        working-directory: backend
+        run: ruff check . --ignore E501
 
       - name: Run pytest test suite
         run: python -m pytest backend/tests -v --tb=short
@@ -47,6 +52,10 @@ jobs:
       - name: TypeScript strict verification
         working-directory: frontend
         run: npx tsc --noEmit
+
+      - name: ESLint verification
+        working-directory: frontend
+        run: npm run lint
 
       - name: Production Vite build
         working-directory: frontend

@@ -145,9 +145,8 @@ export const CitySearch: React.FC<CitySearchProps> = ({
                   role="option"
                   aria-selected={selectedIndex === idx}
                   onClick={() => handleSelectCity(loc.name)}
-                  className={`w-full text-left px-3 py-2 rounded-lg text-sm flex items-center justify-between transition-colors ${
-                    selectedIndex === idx ? 'bg-emerald-500/20 text-emerald-300' : 'hover:bg-slate-800/80 text-slate-200'
-                  }`}
+                  className={`w-full text-left px-3 py-2 rounded-lg text-sm flex items-center justify-between transition-colors ${selectedIndex === idx ? 'bg-emerald-500/20 text-emerald-300' : 'hover:bg-slate-800/80 text-slate-200'
+                    }`}
                 >
                   <div className="flex items-center gap-2 truncate">
                     <MapPin className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
@@ -176,13 +175,12 @@ export const CitySearch: React.FC<CitySearchProps> = ({
                   <button
                     key={city}
                     onClick={() => handleSelectCity(city)}
-                    className={`text-left px-2.5 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-colors truncate ${
-                      selectedCity.toLowerCase() === city.toLowerCase()
-                        ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                        : selectedIndex === idx
+                    className={`text-left px-2.5 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-colors truncate ${selectedCity.toLowerCase() === city.toLowerCase()
+                      ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                      : selectedIndex === idx
                         ? 'bg-slate-800 text-slate-100'
                         : 'hover:bg-slate-800 text-slate-300'
-                    }`}
+                      }`}
                   >
                     <MapPin className="w-3 h-3 text-emerald-400 shrink-0" />
                     <span className="truncate">{city}</span>

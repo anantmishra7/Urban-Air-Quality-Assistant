@@ -3,12 +3,12 @@ Utility functions for BreatheCity AI backend.
 Includes CPCB AQI computation (all 6 pollutants), Open-Meteo API helpers,
 geocoding, and in-memory caching.
 """
-import os
-import logging
-from typing import Dict, Any, List, Optional, Tuple
-import httpx
-from datetime import datetime, timezone
 
+import logging
+from datetime import UTC, datetime
+from typing import Any
+
+import httpx
 from cachetools import TTLCache, cached
 
 logger = logging.getLogger("breathecity")
@@ -27,11 +27,11 @@ WEATHER_URL = "https://api.open-meteo.com/v1/forecast"
 # CO in mg/m³ (8-hr avg).  Ranges are continuous floats – no integer gaps.
 # Source: Central Pollution Control Board, India – National AQI methodology.
 # ---------------------------------------------------------------------------
-CPCB_BREAKPOINTS: Dict[str, List[Tuple[float, float, float, float]]] = {
+CPCB_BREAKPOINTS: dict[str, list[tuple[float, float, float, float]]] = {
     # PM2.5 (µg/m³, 24-hr avg)
     "pm2_5": [
-        (0.0,   30.0,   0.0,  50.0),
-        (30.01, 60.0,  51.0, 100.0),
+        (0.0, 30.0, 0.0, 50.0),
+        (30.01, 60.0, 51.0, 100.0),
         (60.01, 90.0, 101.0, 200.0),
         (90.01, 120.0, 201.0, 300.0),
         (120.01, 250.0, 301.0, 400.0),
@@ -39,8 +39,8 @@ CPCB_BREAKPOINTS: Dict[str, List[Tuple[float, float, float, float]]] = {
     ],
     # PM10 (µg/m³, 24-hr avg)
     "pm10": [
-        (0.0,   50.0,   0.0,  50.0),
-        (50.01, 100.0,  51.0, 100.0),
+        (0.0, 50.0, 0.0, 50.0),
+        (50.01, 100.0, 51.0, 100.0),
         (100.01, 250.0, 101.0, 200.0),
         (250.01, 350.0, 201.0, 300.0),
         (350.01, 430.0, 301.0, 400.0),
@@ -48,8 +48,8 @@ CPCB_BREAKPOINTS: Dict[str, List[Tuple[float, float, float, float]]] = {
     ],
     # NO2 (µg/m³, 24-hr avg)
     "nitrogen_dioxide": [
-        (0.0,   40.0,   0.0,  50.0),
-        (40.01, 80.0,  51.0, 100.0),
+        (0.0, 40.0, 0.0, 50.0),
+        (40.01, 80.0, 51.0, 100.0),
         (80.01, 180.0, 101.0, 200.0),
         (180.01, 280.0, 201.0, 300.0),
         (280.01, 400.0, 301.0, 400.0),
@@ -57,8 +57,8 @@ CPCB_BREAKPOINTS: Dict[str, List[Tuple[float, float, float, float]]] = {
     ],
     # SO2 (µg/m³, 24-hr avg)
     "sulphur_dioxide": [
-        (0.0,   40.0,   0.0,  50.0),
-        (40.01, 80.0,  51.0, 100.0),
+        (0.0, 40.0, 0.0, 50.0),
+        (40.01, 80.0, 51.0, 100.0),
         (80.01, 380.0, 101.0, 200.0),
         (380.01, 800.0, 201.0, 300.0),
         (800.01, 1600.0, 301.0, 400.0),
@@ -66,8 +66,8 @@ CPCB_BREAKPOINTS: Dict[str, List[Tuple[float, float, float, float]]] = {
     ],
     # CO (mg/m³, 8-hr avg)  — Open-Meteo returns µg/m³; we convert in code
     "carbon_monoxide": [
-        (0.0,  1.0,   0.0,  50.0),
-        (1.01, 2.0,  51.0, 100.0),
+        (0.0, 1.0, 0.0, 50.0),
+        (1.01, 2.0, 51.0, 100.0),
         (2.01, 10.0, 101.0, 200.0),
         (10.01, 17.0, 201.0, 300.0),
         (17.01, 34.0, 301.0, 400.0),
@@ -75,8 +75,8 @@ CPCB_BREAKPOINTS: Dict[str, List[Tuple[float, float, float, float]]] = {
     ],
     # O3 (µg/m³, 8-hr avg)
     "ozone": [
-        (0.0,   50.0,   0.0,  50.0),
-        (50.01, 100.0,  51.0, 100.0),
+        (0.0, 50.0, 0.0, 50.0),
+        (50.01, 100.0, 51.0, 100.0),
         (100.01, 168.0, 101.0, 200.0),
         (168.01, 208.0, 201.0, 300.0),
         (208.01, 748.0, 301.0, 400.0),
@@ -89,7 +89,7 @@ CPCB_BREAKPOINTS: Dict[str, List[Tuple[float, float, float, float]]] = {
 # ---------------------------------------------------------------------------
 
 
-def sub_index(concentration: float, breakpoints: List[Tuple[float, float, float, float]]) -> float:
+def sub_index(concentration: float, breakpoints: list[tuple[float, float, float, float]]) -> float:
     """Compute sub-index for a single pollutant using linear interpolation."""
     for c_low, c_high, i_low, i_high in breakpoints:
         if c_low <= concentration <= c_high:
@@ -98,13 +98,13 @@ def sub_index(concentration: float, breakpoints: List[Tuple[float, float, float,
     return 500.0
 
 
-def compute_cpcb_aqi(pollutants: Dict[str, float]) -> Dict[str, Any]:
+def compute_cpcb_aqi(pollutants: dict[str, float]) -> dict[str, Any]:
     """
     Compute CPCB National AQI from raw pollutant concentrations.
     Returns overall AQI (max sub-index) and individual sub-indices.
     CO is expected in µg/m³ from Open-Meteo and converted to mg/m³ here.
     """
-    sub_indices: Dict[str, float] = {}
+    sub_indices: dict[str, float] = {}
     for key, bp_key in [
         ("pm2_5", "pm2_5"),
         ("pm10", "pm10"),
@@ -127,7 +127,7 @@ def compute_cpcb_aqi(pollutants: Dict[str, float]) -> Dict[str, Any]:
     return {"aqi": overall_aqi, "sub_indices": sub_indices, "dominant_pollutant": dominant}
 
 
-def categorize_aqi(aqi: Optional[float]) -> str:
+def categorize_aqi(aqi: float | None) -> str:
     """Map numeric AQI to CPCB category string."""
     if aqi is None:
         return "unknown"
@@ -162,7 +162,7 @@ def health_implications(category: str) -> str:
 # ---------------------------------------------------------------------------
 
 
-def get_coordinates(city: str) -> Optional[Dict[str, Any]]:
+def get_coordinates(city: str) -> dict[str, Any] | None:
     """Geocode a city name to lat/lon using Open-Meteo geocoding API."""
     params = {"name": city, "count": 5, "language": "en", "format": "json"}
     try:
@@ -183,7 +183,7 @@ def get_coordinates(city: str) -> Optional[Dict[str, Any]]:
     return None
 
 
-def geocode_search(query: str, count: int = 5) -> List[Dict[str, Any]]:
+def geocode_search(query: str, count: int = 5) -> list[dict[str, Any]]:
     """Return multiple geocoding results for search autocomplete."""
     params = {"name": query, "count": count, "language": "en", "format": "json"}
     try:
@@ -192,21 +192,23 @@ def geocode_search(query: str, count: int = 5) -> List[Dict[str, Any]]:
         data = resp.json()
         results = []
         for loc in data.get("results", []):
-            results.append({
-                "name": loc.get("name", ""),
-                "latitude": loc["latitude"],
-                "longitude": loc["longitude"],
-                "country": loc.get("country", ""),
-                "admin1": loc.get("admin1", ""),
-                "population": loc.get("population"),
-            })
+            results.append(
+                {
+                    "name": loc.get("name", ""),
+                    "latitude": loc["latitude"],
+                    "longitude": loc["longitude"],
+                    "country": loc.get("country", ""),
+                    "admin1": loc.get("admin1", ""),
+                    "population": loc.get("population"),
+                }
+            )
         return results
     except Exception as e:
         logger.error("Geocode search failed for %s: %s", query, e)
         return []
 
 
-def fetch_air_quality(lat: float, lon: float, forecast_days: int = 1) -> Optional[Dict[str, Any]]:
+def fetch_air_quality(lat: float, lon: float, forecast_days: int = 1) -> dict[str, Any] | None:
     """Fetch air quality data from Open-Meteo Air Quality API."""
     params = {
         "latitude": lat,
@@ -224,7 +226,7 @@ def fetch_air_quality(lat: float, lon: float, forecast_days: int = 1) -> Optiona
         return None
 
 
-def fetch_weather(lat: float, lon: float, forecast_days: int = 1) -> Optional[Dict[str, Any]]:
+def fetch_weather(lat: float, lon: float, forecast_days: int = 1) -> dict[str, Any] | None:
     """Fetch weather data from Open-Meteo Weather API."""
     params = {
         "latitude": lat,
@@ -251,7 +253,7 @@ CACHE = TTLCache(maxsize=1000, ttl=300)  # 5-minute TTL
 
 
 @cached(CACHE)
-def get_aqi_data(city: str) -> Optional[Dict[str, Any]]:
+def get_aqi_data(city: str) -> dict[str, Any] | None:
     """
     Master helper: geocode -> air quality -> AQI calculation -> weather.
     Returns a full AQI response dict or None.
@@ -269,8 +271,15 @@ def get_aqi_data(city: str) -> Optional[Dict[str, Any]]:
     try:
         idx = -1  # Latest hourly value
         hourly = aq_data["hourly"]
-        pollutants: Dict[str, float] = {}
-        for key in ["pm2_5", "pm10", "carbon_monoxide", "nitrogen_dioxide", "sulphur_dioxide", "ozone"]:
+        pollutants: dict[str, float] = {}
+        for key in [
+            "pm2_5",
+            "pm10",
+            "carbon_monoxide",
+            "nitrogen_dioxide",
+            "sulphur_dioxide",
+            "ozone",
+        ]:
             val = hourly.get(key, [None])[idx]
             if val is not None:
                 pollutants[key] = float(val)
@@ -292,7 +301,7 @@ def get_aqi_data(city: str) -> Optional[Dict[str, Any]]:
             "aqi_category": category,
             "health_implications": health_implications(category),
             "weather": current_weather,
-            "last_updated": datetime.now(timezone.utc).isoformat(),
+            "last_updated": datetime.now(UTC).isoformat(),
             "source": "Open-Meteo + CPCB AQI Methodology",
         }
         logger.info("AQI data fetched for %s: AQI=%s (%s)", city, aqi_info["aqi"], category)

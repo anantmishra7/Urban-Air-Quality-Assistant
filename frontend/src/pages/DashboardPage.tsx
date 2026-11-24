@@ -21,7 +21,8 @@ import {
 } from 'recharts';
 import { useCity } from '../context/CityContext';
 import { api } from '../api/client';
-import { AqiBadge, getCategoryStyles } from '../components/ui/AqiBadge';
+import { AqiBadge } from '../components/ui/AqiBadge';
+import { getCategoryStyles } from '../utils/aqiStyles';
 import { StatCard } from '../components/ui/StatCard';
 import { DashboardSkeleton } from '../components/ui/LoadingSkeleton';
 import { ErrorState } from '../components/ui/ErrorState';
@@ -36,18 +37,23 @@ export const DashboardPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [trendMetric, setTrendMetric] = useState<'aqi' | 'pm2_5' | 'pm10'>('aqi');
 
+  const fetchCityTelemetry = React.useCallback(async (city: string) => {
+    const [aqiRes, forecastRes] = await Promise.all([
+      api.getAqi(city),
+      api.getHourlyForecast(city).catch(() => ({ city, hourly: [] })),
+    ]);
+    return { aqiRes, hourly: forecastRes.hourly || [] };
+  }, []);
+
   const loadData = async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
     else setLoading(true);
     setError(null);
 
     try {
-      const [aqiRes, forecastRes] = await Promise.all([
-        api.getAqi(selectedCity),
-        api.getHourlyForecast(selectedCity).catch(() => ({ city: selectedCity, hourly: [] })),
-      ]);
-      setData(aqiRes);
-      setHourlySeries(forecastRes.hourly || []);
+      const result = await fetchCityTelemetry(selectedCity);
+      setData(result.aqiRes);
+      setHourlySeries(result.hourly);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Failed to fetch AQI data';
       setError(msg);
@@ -59,17 +65,14 @@ export const DashboardPage: React.FC = () => {
 
   useEffect(() => {
     let cancelled = false;
-    const fetchData = async () => {
+    async function initLoad() {
       setLoading(true);
       setError(null);
       try {
-        const [aqiRes, forecastRes] = await Promise.all([
-          api.getAqi(selectedCity),
-          api.getHourlyForecast(selectedCity).catch(() => ({ city: selectedCity, hourly: [] })),
-        ]);
+        const result = await fetchCityTelemetry(selectedCity);
         if (!cancelled) {
-          setData(aqiRes);
-          setHourlySeries(forecastRes.hourly || []);
+          setData(result.aqiRes);
+          setHourlySeries(result.hourly);
         }
       } catch (err: unknown) {
         if (!cancelled) {
@@ -81,12 +84,12 @@ export const DashboardPage: React.FC = () => {
           setLoading(false);
         }
       }
-    };
-    fetchData();
+    }
+    initLoad();
     return () => {
       cancelled = true;
     };
-  }, [selectedCity]);
+  }, [selectedCity, fetchCityTelemetry]);
 
   if (loading) {
     return (

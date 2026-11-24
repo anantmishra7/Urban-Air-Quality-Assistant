@@ -2,8 +2,9 @@
 Geocode router – city search autocomplete.
 GET /geocode?q=Delhi
 """
+
 import logging
-from typing import Dict, Any, List
+from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query
 
@@ -18,7 +19,7 @@ router = APIRouter(prefix="/geocode", tags=["Geocode"])
 async def geocode(
     q: str = Query(..., min_length=1, max_length=200, description="City name or search query"),
     count: int = Query(5, ge=1, le=20, description="Maximum number of results"),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Geocode a city name and return matching locations with lat/lon.
     Useful for search autocomplete in the frontend.

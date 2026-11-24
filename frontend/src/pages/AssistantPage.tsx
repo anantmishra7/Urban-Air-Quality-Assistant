@@ -29,6 +29,12 @@ export const AssistantPage: React.FC = () => {
   const [inputValue, setInputValue] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const msgSeqRef = useRef(0);
+
+  const nextMsgId = (prefix: string) => {
+    msgSeqRef.current += 1;
+    return `${prefix}-${msgSeqRef.current}`;
+  };
 
   const sampleQuestions = [
     'Is the air safe today?',
@@ -89,7 +95,7 @@ export const AssistantPage: React.FC = () => {
     if (!q || isTyping) return;
 
     const userMsg: Message = {
-      id: `user-${Date.now()}`,
+      id: nextMsgId('user'),
       sender: 'user',
       text: q,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
@@ -102,7 +108,7 @@ export const AssistantPage: React.FC = () => {
     try {
       const response = await api.askAssistant(selectedCity, q);
       const assistantMsg: Message = {
-        id: `assistant-${Date.now()}`,
+        id: nextMsgId('assistant'),
         sender: 'assistant',
         text: response.answer,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
@@ -111,7 +117,7 @@ export const AssistantPage: React.FC = () => {
       setMessages((prev) => [...prev, assistantMsg]);
     } catch (err: unknown) {
       const errorMsg: Message = {
-        id: `err-${Date.now()}`,
+        id: nextMsgId('err'),
         sender: 'assistant',
         text: `Sorry, I encountered an issue analyzing the air quality data. Please try again. (${err instanceof Error ? err.message : 'Network error'})`,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),

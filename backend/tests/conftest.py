@@ -1,10 +1,9 @@
-import pytest
-from fastapi.testclient import TestClient
-from sqlmodel import SQLModel, create_engine, Session
-from sqlalchemy.pool import StaticPool
-
 import backend.app.db as app_db
+import pytest
 from backend.app.main import app
+from fastapi.testclient import TestClient
+from sqlalchemy.pool import StaticPool
+from sqlmodel import Session, SQLModel, create_engine
 
 # Use in-memory SQLite database with StaticPool so all connections share the same memory DB
 test_engine = create_engine(

@@ -1,5 +1,5 @@
-import pytest
 from unittest.mock import patch
+
 from fastapi.testclient import TestClient
 
 
@@ -65,9 +65,19 @@ def test_get_aqi_endpoint_city_not_found(client: TestClient):
 def test_compare_cities_endpoint(client: TestClient):
     def mock_get_aqi(city: str):
         if city.lower() == "delhi":
-            return {"city": "Delhi", "aqi": 320.0, "aqi_category": "Very Poor", "pollutants": {"pm2_5": 150.0}}
+            return {
+                "city": "Delhi",
+                "aqi": 320.0,
+                "aqi_category": "Very Poor",
+                "pollutants": {"pm2_5": 150.0},
+            }
         if city.lower() == "mumbai":
-            return {"city": "Mumbai", "aqi": 85.0, "aqi_category": "Satisfactory", "pollutants": {"pm2_5": 35.0}}
+            return {
+                "city": "Mumbai",
+                "aqi": 85.0,
+                "aqi_category": "Satisfactory",
+                "pollutants": {"pm2_5": 35.0},
+            }
         return None
 
     with patch("backend.app.routers.comparison.get_aqi_data", side_effect=mock_get_aqi):
@@ -88,24 +98,28 @@ def test_compare_cities_max_limit(client: TestClient):
 
 
 def test_hotspot_endpoint(client: TestClient):
-    with patch("backend.app.routers.hotspot.get_coordinates", return_value={"latitude": 28.6, "longitude": 77.2, "name": "Delhi"}):
-        with patch("backend.app.routers.hotspot.fetch_air_quality") as mock_aq:
-            mock_aq.return_value = {
-                "hourly": {
-                    "pm2_5": [45.0, 50.0],
-                    "pm10": [80.0, 90.0],
-                }
+    with (
+        patch(
+            "backend.app.routers.hotspot.get_coordinates",
+            return_value={"latitude": 28.6, "longitude": 77.2, "name": "Delhi"},
+        ),
+        patch("backend.app.routers.hotspot.fetch_air_quality") as mock_aq,
+    ):
+        mock_aq.return_value = {
+            "hourly": {
+                "pm2_5": [45.0, 50.0],
+                "pm10": [80.0, 90.0],
             }
-            res = client.get("/api/hotspot/?city=Delhi")
-            assert res.status_code == 200
-            data = res.json()
-            assert data["city"] == "Delhi"
-            assert len(data["hotspots"]) > 0
-            assert "label" in data["hotspots"][0]
+        }
+        res = client.get("/api/hotspot/?city=Delhi")
+        assert res.status_code == 200
+        data = res.json()
+        assert data["city"] == "Delhi"
+        assert len(data["hotspots"]) > 0
+        assert "label" in data["hotspots"][0]
 
 
 def test_get_report_not_found(client: TestClient):
     res = client.get("/api/report/999999")
     assert res.status_code == 404
     assert "not found" in res.json()["detail"].lower()
-

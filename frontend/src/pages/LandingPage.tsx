@@ -20,19 +20,19 @@ import { api } from '../api/client';
 import { AqiBadge } from '../components/ui/AqiBadge';
 import type { AqiData } from '../types';
 
+const FEATURED_METROS = ['Delhi', 'Mumbai', 'Bengaluru', 'Kolkata', 'Chennai'];
+
 export const LandingPage: React.FC = () => {
   const { setSelectedCity } = useCity();
   const navigate = useNavigate();
   const [metroData, setMetroData] = useState<{ city: string; aqi: number | null; category: string }[]>([]);
   const [loadingMetros, setLoadingMetros] = useState(true);
 
-  const featuredMetros = ['Delhi', 'Mumbai', 'Bengaluru', 'Kolkata', 'Chennai'];
-
   useEffect(() => {
     let isMounted = true;
     async function loadMetros() {
       try {
-        const promises = featuredMetros.map(async (city) => {
+        const promises = FEATURED_METROS.map(async (city) => {
           try {
             const data: AqiData = await api.getAqi(city);
             return { city, aqi: data.aqi, category: data.aqi_category };
@@ -96,7 +96,7 @@ export const LandingPage: React.FC = () => {
           </div>
           <div className="flex flex-wrap items-center justify-center gap-2.5">
             {loadingMetros
-              ? featuredMetros.map((c) => (
+              ? FEATURED_METROS.map((c) => (
                   <div
                     key={c}
                     className="h-10 w-28 bg-slate-900/80 rounded-xl border border-slate-800 animate-pulse"

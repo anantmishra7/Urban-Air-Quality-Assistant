@@ -63,6 +63,7 @@ export const CityProvider: React.FC<{ children: React.ReactNode }> = ({ children
   );
 };
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useCity = (): CityContextType => {
   const context = useContext(CityContext);
   if (!context) {

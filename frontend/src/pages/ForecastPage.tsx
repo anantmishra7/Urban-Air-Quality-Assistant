@@ -31,6 +31,7 @@ export const ForecastPage: React.FC = () => {
   const [hourlyData, setHourlyData] = useState<HourlyForecastItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     let mounted = true;
@@ -58,7 +59,7 @@ export const ForecastPage: React.FC = () => {
     return () => {
       mounted = false;
     };
-  }, [selectedCity]);
+  }, [selectedCity, reloadKey]);
 
   if (loading) {
     return (
@@ -80,7 +81,7 @@ export const ForecastPage: React.FC = () => {
         <ErrorState
           title={`Forecast Unavailable for ${selectedCity}`}
           message={error || 'Atmospheric chemistry forecasts for this location are currently unavailable from Open-Meteo.'}
-          onRetry={() => window.location.reload()}
+          onRetry={() => setReloadKey((k) => k + 1)}
         />
       </div>
     );
